@@ -33,16 +33,43 @@ import java.io.*;
 import java.net.*;
 
 public class EchoClient {
+
+
+    public static byte[] getByteArr(int j) {
+        int i = 3;
+        byte[] b = new byte[4];
+        String bin_str = Integer.toBinaryString(j);
+            while (bin_str.length() > 8) {
+                int len = bin_str.length();
+                String right = bin_str.substring(len-8);
+                String left = bin_str.substring(0, len-8);
+                bin_str = left;
+                Integer i1 = Integer.parseInt(right, 2);
+                b[i] = i1.byteValue();
+                i--;
+            }
+        if (i < 0) return b;
+        if (bin_str.length() == 0) 
+            bin_str = "0";
+
+        Integer i1 = Integer.parseInt(bin_str, 2);
+        b[i] = i1.byteValue();
+        i--;
+        Integer zero = new Integer(0);
+        while (i > -1) {
+            b[i] = zero.byteValue();   
+            i--;
+        } 
+        return b;
+         
+
+    }
+
     public static void main(String[] args) throws IOException {
         
-        if (args.length != 2) {
-            System.err.println(
-                "Usage: java EchoClient <host name> <port number>");
-            System.exit(1);
-        }
 
-        String hostName = args[0];
-        int portNumber = Integer.parseInt(args[1]);
+        String hostName = "marcuspan-MacBookAir";
+        int portNumber = 11311;
 
         try (
             Socket echoSocket = new Socket(hostName, portNumber);
@@ -55,10 +82,44 @@ public class EchoClient {
                 new BufferedReader(
                     new InputStreamReader(System.in))
         ) {
+			String msgdef = "message_definition=string data\n\n"; 
+			String callerid = "callerid=/rostopic_4767_1316912741557";
+			String latch = "latching=1"; 
+            String md5sum = "md5sum=99ce8a1687cec8cbd883ec73ca41d1";
+            String topic = "topic=/chatter";
+            String type = "type=std_msgs/String";
+            String msg = "hello";
+	        byte[] b_msgdef = msgdef.getBytes();
+	        byte[] b_callerid = callerid.getBytes();
+	        byte[] b_latch = latch.getBytes();
+	        byte[] b_md5sum = md5sum.getBytes();
+	        byte[] b_topic = topic.getBytes();
+	        byte[] b_type = type.getBytes();
+	        byte[] b_msg = msg.getBytes();
+            int len_header = b_msgdef.length + b_callerid.length + b_latch.length 
+            + b_md5sum.length + b_topic.length + b_type.length;
+            int len_header_all = len_header + 6*4;
+            int len_msg = b_msg.length; 
+            int len_msg_all = len_msg + 4;
+            int len_all = len_msg_all + len_header_all; 
+            byte[] b = new byte[len_all];
+            int i = 0;
+            byte[] header0 =  getByteArr(len_header_all);
+            for (int j = 0; j < 4; j++) {
+                b[i+j] = header0[j];
+                 
+             
+   	    		
             String userInput;
             while ((userInput = stdIn.readLine()) != null) {
                 out.println(userInput);
-                System.out.println("echo: " + in.readLine());
+				while(true) {
+					String s = in.readLine();
+					if (s == null)
+						break;
+                	System.out.println(s);
+				}
+				System.out.println("done reading");
             }
         } catch (UnknownHostException e) {
             System.err.println("Don't know about host " + hostName);

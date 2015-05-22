@@ -34,8 +34,8 @@ import java.net.*;
 
 public class EchoClient {
 
-
-    public static byte[] getByteArr(int j) {
+    public static int mark = 0;
+    public static byte[] getByteArr2(int j) {
         int i = 3;
         byte[] b = new byte[4];
         String bin_str = Integer.toBinaryString(j);
@@ -64,6 +64,22 @@ public class EchoClient {
          
 
     }
+    
+    public static byte[] getByteArr(int j) {
+        byte[] b = new byte[4];
+        for (int i = 0; i < b.length; i++) {
+            Integer k  = (j >> 8*(3-i)) & 0x000000FF;
+            b[3-i] = k.byteValue();
+        }
+        return b;
+
+    }
+    public static void fillArr(byte[] b1, byte[] b2, int offset, int len) {
+        for (int i = 0; i < len; i++) {
+            b1[offset+i] = b2[i];
+            mark++;
+        };
+    }
 
     public static void main(String[] args) throws IOException {
         
@@ -73,8 +89,9 @@ public class EchoClient {
 
         try (
             Socket echoSocket = new Socket(hostName, portNumber);
+            OutputStream OutStr = echoSocket.getOutputStream();
             PrintWriter out =
-                new PrintWriter(echoSocket.getOutputStream(), true);
+                new PrintWriter(OutStr, true);
             BufferedReader in =
                 new BufferedReader(
                     new InputStreamReader(echoSocket.getInputStream()));
@@ -89,27 +106,50 @@ public class EchoClient {
             String topic = "topic=/chatter";
             String type = "type=std_msgs/String";
             String msg = "hello";
-	        byte[] b_msgdef = msgdef.getBytes();
-	        byte[] b_callerid = callerid.getBytes();
-	        byte[] b_latch = latch.getBytes();
-	        byte[] b_md5sum = md5sum.getBytes();
-	        byte[] b_topic = topic.getBytes();
-	        byte[] b_type = type.getBytes();
-	        byte[] b_msg = msg.getBytes();
-            int len_header = b_msgdef.length + b_callerid.length + b_latch.length 
-            + b_md5sum.length + b_topic.length + b_type.length;
-            int len_header_all = len_header + 6*4;
-            int len_msg = b_msg.length; 
-            int len_msg_all = len_msg + 4;
-            int len_all = len_msg_all + len_header_all; 
-            byte[] b = new byte[len_all];
-            int i = 0;
-            byte[] header0 =  getByteArr(len_header_all);
-            for (int j = 0; j < 4; j++) {
-                b[i+j] = header0[j];
+            byte[][] header = new byte[6][];
+            header[0] = msgdef.getBytes();
+	        header[1] = callerid.getBytes();
+	        header[2] = latch.getBytes();
+	        header[3] = md5sum.getBytes();
+	        header[4] = topic.getBytes();
+	        header[5] = type.getBytes();
+            
+            byte[] b_msg = msg.getBytes();
+            int len_header = 0;
+            for (int i = 0; i < header.length; i++) {
+                len_header = len_header + header[i].length + 4;
+            }
+            
+            len_header = len_header + 4;
+            System.out.println(len_header);
+            int len_msg = b_msg.length + 4 + 4;
+            int len_all = len_header + len_msg; 
+            byte[] send = new byte[len_all];
+            mark = 0;
+            fillArr(send, getByteArr(len_header), mark, 4);
+            for (int i = 0; i < header.length; i++) {
+                fillArr(send, getByteArr(header[i].length), mark, 4);
+                fillArr(send, header[i], mark, header[i].length);
+            }
+            fillArr(send, getByteArr(len_msg), mark, 4);
+            fillArr(send, getByteArr(b_msg.length), mark, 4);
+            fillArr(send, b_msg, mark, b_msg.length);
+            Byte firstb = new Byte("-80");
+            
+            send[0] = firstb.byteValue();
                  
-             
-   	    		
+            for (int i = 0; i < send.length; i++) {
+                Byte b = new Byte(send[i]);
+                System.out.println(Integer.toHexString(b.intValue())); 
+            }
+            OutStr.write(send);
+			while(true) {
+				String s = in.readLine();
+				if (s == null)
+					break;
+               	System.out.println(s);
+			}
+   	    	/*	
             String userInput;
             while ((userInput = stdIn.readLine()) != null) {
                 out.println(userInput);
@@ -120,7 +160,7 @@ public class EchoClient {
                 	System.out.println(s);
 				}
 				System.out.println("done reading");
-            }
+            }*/
         } catch (UnknownHostException e) {
             System.err.println("Don't know about host " + hostName);
             System.exit(1);
